@@ -6,8 +6,10 @@
 #define genstruct(x) struct x {};
 #define names(...) MAP(genstruct, __VA_ARGS__)
 
+template<int> struct L;
+
 struct nil {
-	static void dump_stack() { std::cout << std::endl; }
+	static void tochars() { std::cout << std::endl; }
 };
 
 template <typename Element, typename Tail>
@@ -16,13 +18,14 @@ struct return_stack {
 	using tail = Tail;
 };
 
-template <int Element, typename Tail>
+template <typename Element, typename Tail>
 struct data_stack {
-	static const int head = Element;
+	using head = Element;
 	using tail = Tail;
-	static void dump_stack() {
-		std::cout << head << " ";
-		tail::dump_stack();
+	static void tochars() {
+		head::tochars();
+		std::cout << " ";
+		tail::tochars();
 	}
 };
 
@@ -48,7 +51,6 @@ struct rstack_concat<nil, S2> {
 template <typename, typename...> struct build_return_stack;
 
 struct literal;
-template <int> struct L;
 template <int N>
 struct lit {
 	using run = return_stack<literal, return_stack<L<N>, nil>>;
@@ -180,14 +182,19 @@ struct forth {
 		typename Environment::dict   >::run;
 };
 
-template <int N> struct L { static const int v = N; };
+template <int N> struct L {
+	static const int v = N;
+	static void tochars() {
+		std::cout << v;
+	}
+};
 
 struct literal {
 	template <typename Environment>
 		static const int N = Environment::rstack::head::v;
 	template <typename Environment>
-		using run = environment<data_stack<N<Environment>,
-		      typename Environment::dstack>,
+		using run = environment<data_stack<
+		         L<N<Environment>>, typename Environment::dstack>,
 		      typename Environment::rstack::tail,
 		      typename Environment::dict>;
 };
@@ -203,8 +210,8 @@ struct drop {
 
 struct swap {
 	template <typename Stack> struct do_swap {
-			const static int a0 = Stack::head;
-			const static int a1 = Stack::tail::head;
+			using a0 = typename Stack::head;
+			using a1 = typename Stack::tail::head;
 			using run = data_stack<
 			    a1, data_stack<a0, typename Stack::tail::tail>>;
 		};
@@ -217,7 +224,7 @@ struct swap {
 struct dup {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head,
+		      data_stack<typename Environment::dstack::head,
 		                 typename Environment::dstack>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -225,9 +232,9 @@ struct dup {
 
 struct over {
 	template <typename Stack> struct do_over {
-			const static int a0 = Stack::head;
-			const static int a1 = Stack::tail::head;
-			const static int a2 = Stack::tail::tail::head;
+			using a0 = typename Stack::head;
+			using a1 = typename Stack::tail::head;
+			using a2 = typename Stack::tail::tail::head;
 			using run = data_stack<a2, data_stack<a1,
 			    data_stack<a0, typename Stack::tail::tail::tail>>>;
 		};
@@ -239,9 +246,9 @@ struct over {
 
 struct rot {
 	template <typename Stack> struct do_rot {
-			const static int a0 = Stack::head;
-			const static int a1 = Stack::tail::head;
-			const static int a2 = Stack::tail::tail::head;
+			using a0 = typename Stack::head;
+			using a1 = typename Stack::tail::head;
+			using a2 = typename Stack::tail::tail::head;
 			using run = data_stack<a2, data_stack<a0,
 			    data_stack<a1, typename Stack::tail::tail::tail>>>;
 		};
@@ -253,9 +260,9 @@ struct rot {
 
 struct nrot {
 	template <typename Stack> struct do_nrot {
-			const static int a0 = Stack::head;
-			const static int a1 = Stack::tail::head;
-			const static int a2 = Stack::tail::tail::head;
+			using a0 = typename Stack::head;
+			using a1 = typename Stack::tail::head;
+			using a2 = typename Stack::tail::tail::head;
 			using run = data_stack<a1, data_stack<a2,
 			    data_stack<a0, typename Stack::tail::tail::tail>>>;
 		};
@@ -275,10 +282,10 @@ struct drop2 {
 
 struct swap2 {
 	template <typename Stack> struct do_swap2 {
-			const static int a0 = Stack::head;
-			const static int a1 = Stack::tail::head;
-			const static int a2 = Stack::tail::tail::head;
-			const static int a3 = Stack::tail::tail::tail::head;
+			using a0 = typename Stack::head::v;
+			using a1 = typename Stack::tail::head::v;
+			using a2 = typename Stack::tail::tail::head::v;
+			using a3 = typename Stack::tail::tail::tail::head::v;
 			using run = data_stack<a1, data_stack<a0,
 			    data_stack<a3, data_stack<a2,
 			    typename Stack::tail::tail>>>>;
@@ -292,8 +299,9 @@ struct swap2 {
 struct dup2 {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head, data_stack<
-		                 Environment::dstack::head,
+		      data_stack<typename Environment::dstack::head,
+		                 data_stack<
+		                 typename Environment::dstack::head,
 		                 typename Environment::dstack>>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -301,10 +309,10 @@ struct dup2 {
 
 struct ifdup {
 	template <typename Stack> struct do_ifdup {
-			const static int head = Stack::head;
+			static const int head = Stack::head::v;
 			using run = typename
 				If<head == 0, Stack,
-			           data_stack<head, Stack>>::v;
+			           data_stack<L<head>, Stack>>::v;
 		};
 	template <typename Environment> using run = environment<
 		      typename do_ifdup<typename Environment::dstack>::run,
@@ -315,7 +323,7 @@ struct ifdup {
 struct inc {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head + 1,
+		      data_stack<L<Environment::dstack::head::v + 1>,
 		                 typename Environment::dstack::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -324,7 +332,7 @@ struct inc {
 struct dec {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head - 1,
+		      data_stack<L<Environment::dstack::head::v - 1>,
 		                 typename Environment::dstack::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -333,7 +341,7 @@ struct dec {
 struct inc4 {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head + 4,
+		      data_stack<L<Environment::dstack::head::v + 4>,
 		                 typename Environment::dstack::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -342,7 +350,7 @@ struct inc4 {
 struct dec4 {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head - 4,
+		      data_stack<L<Environment::dstack::head::v - 4>,
 		                 typename Environment::dstack::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -351,8 +359,8 @@ struct dec4 {
 struct plus {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head +
-		                 Environment::dstack::tail::head,
+		      data_stack<L<Environment::dstack::head::v +
+		                   Environment::dstack::tail::head::v>,
 		                 typename Environment::dstack::tail::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -361,8 +369,8 @@ struct plus {
 struct minus {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head -
-		                 Environment::dstack::tail::head,
+		      data_stack<L<Environment::dstack::head::v -
+		                   Environment::dstack::tail::head::v>,
 		                 typename Environment::dstack::tail::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -371,8 +379,8 @@ struct minus {
 struct mul {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head *
-		                 Environment::dstack::tail::head,
+		      data_stack<L<Environment::dstack::head::v *
+		                   Environment::dstack::tail::head::v>,
 		                 typename Environment::dstack::tail::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -381,11 +389,11 @@ struct mul {
 struct divmod {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head /
-		                 Environment::dstack::tail::head,
-		                 data_stack<
-					 Environment::dstack::head %
-					 Environment::dstack::tail::head,
+		      data_stack<L<Environment::dstack::head::v /
+		                   Environment::dstack::tail::head::v>,
+		                 data_stack<L<(
+					 Environment::dstack::head::v %
+					 Environment::dstack::tail::head::v)>,
 		                 typename Environment::dstack::tail::tail>>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -394,8 +402,8 @@ struct divmod {
 struct equ {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head ==
-		                 Environment::dstack::tail::head,
+		      data_stack<L<Environment::dstack::head::v ==
+		                   Environment::dstack::tail::head::v>,
 		                 typename Environment::dstack::tail::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -404,8 +412,8 @@ struct equ {
 struct nequ {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head !=
-		                 Environment::dstack::tail::head,
+		      data_stack<L<Environment::dstack::head::v !=
+		                   Environment::dstack::tail::head::v>,
 		                 typename Environment::dstack::tail::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -414,8 +422,8 @@ struct nequ {
 struct lt {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head <
-		                 Environment::dstack::tail::head,
+		      data_stack<L<(Environment::dstack::head::v <
+		                    Environment::dstack::tail::head::v)>,
 		                 typename Environment::dstack::tail::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -424,8 +432,8 @@ struct lt {
 struct gt {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<(Environment::dstack::head >
-		                  Environment::dstack::tail::head),
+		      data_stack<L<(Environment::dstack::head::v >
+		                    Environment::dstack::tail::head::v)>,
 		                 typename Environment::dstack::tail::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -434,8 +442,8 @@ struct gt {
 struct le {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head <=
-		                 Environment::dstack::tail::head,
+		      data_stack<L<(Environment::dstack::head::v <=
+		                    Environment::dstack::tail::head::v)>,
 		                 typename Environment::dstack::tail::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -444,8 +452,8 @@ struct le {
 struct ge {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head >=
-		                 Environment::dstack::tail::head,
+		      data_stack<L<(Environment::dstack::head::v >=
+		                    Environment::dstack::tail::head::v)>,
 		                 typename Environment::dstack::tail::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -454,8 +462,8 @@ struct ge {
 struct zequ {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head == 0,
-		                 typename Environment::dstack::tail>,
+		      data_stack<L<Environment::dstack::head::v == 0>,
+		                   typename Environment::dstack::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
 };
@@ -463,8 +471,8 @@ struct zequ {
 struct znequ {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head != 0,
-		                 typename Environment::dstack::tail>,
+		      data_stack<L<Environment::dstack::head != 0>,
+		                   typename Environment::dstack::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
 };
@@ -472,8 +480,8 @@ struct znequ {
 struct zlt {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head < 0,
-		                 typename Environment::dstack::tail>,
+		      data_stack<L<(Environment::dstack::head < 0)>,
+		                   typename Environment::dstack::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
 };
@@ -481,7 +489,7 @@ struct zlt {
 struct zgt {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<(Environment::dstack::head > 0),
+		      data_stack<L<(Environment::dstack::head > 0)>,
 		                 typename Environment::dstack::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -490,8 +498,8 @@ struct zgt {
 struct zle {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head <= 0,
-		                 typename Environment::dstack::tail>,
+		      data_stack<L<(Environment::dstack::head <= 0)>,
+		                    typename Environment::dstack::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
 };
@@ -499,8 +507,8 @@ struct zle {
 struct zge {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<Environment::dstack::head >= 0,
-		                 typename Environment::dstack::tail>,
+		      data_stack<L<(Environment::dstack::head >= 0)>,
+		                    typename Environment::dstack::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
 };
@@ -508,8 +516,8 @@ struct zge {
 struct and_ {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<(Environment::dstack::head &
-		                  Environment::dstack::tail::head),
+		      data_stack<L<(Environment::dstack::head &
+		                    Environment::dstack::tail::head)>,
 		                 typename Environment::dstack::tail::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -518,8 +526,8 @@ struct and_ {
 struct or_ {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<(Environment::dstack::head |
-		                  Environment::dstack::tail::head),
+		      data_stack<L<(Environment::dstack::head::v |
+		                     Environment::dstack::tail::head::v)>,
 		                 typename Environment::dstack::tail::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -528,8 +536,8 @@ struct or_ {
 struct xor_ {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<(Environment::dstack::head ^
-		                  Environment::dstack::tail::head),
+		      data_stack<L<(Environment::dstack::head::v ^
+		                     Environment::dstack::tail::head::v)>,
 		                 typename Environment::dstack::tail::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
@@ -538,8 +546,8 @@ struct xor_ {
 struct invert {
 	template <typename Environment>
 		using run = environment<
-		      data_stack<(~Environment::dstack::head),
-		                 typename Environment::dstack::tail>,
+		      data_stack<L<(~Environment::dstack::head)>,
+		                     typename Environment::dstack::tail>,
 		      typename Environment::rstack,
 		      typename Environment::dict>;
 };
