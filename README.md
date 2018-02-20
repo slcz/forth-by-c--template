@@ -1,2 +1,2 @@
-# forth-by-c--template
+# forth-by-cpp-template
 Forth interpreter using C++ template metaprogramming
