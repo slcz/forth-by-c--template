@@ -13,5 +13,5 @@ int main()
 		divmod
 		>::run;
 	using env = environment<nil, rtnstk, initialize_dictionary::run>;
-	forth::run<env>::dstack::dump_stack();
+	forth::run<env>::dstack::tochars();
 }
