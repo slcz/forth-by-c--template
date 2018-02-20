@@ -27,22 +27,38 @@ struct environment {
 };
 
 /* predefined word */
-
-template <typename...> struct colon;
-
-template <typename Word, typename... Others>
-struct colon<Word, Others...> {
-	using others = colon<Others...>;
-	template <typename Environment>
-		using run = typename others::template action<Environment>;
-	template <typename Environment>
-		using action = typename others::template
-		action<environment<typename Environment::dstack,
-		       return_stack<Word, typename Environment::rstack>>>;
+template <typename, typename...> struct build_return_stack;
+template <typename Head>
+struct build_return_stack<Head> {
+	using run = return_stack<Head, nil>;
 };
 
-template<> struct colon<> {
-	template <typename Environment> using run = Environment;
+template <typename Head, typename... Rest>
+struct build_return_stack {
+	using run = return_stack<Head,
+	      typename build_return_stack<Rest...>::run>;
+};
+
+template <typename, typename> struct rstack_concat;
+
+template <typename S1, typename S2>
+struct rstack_concat {
+	using run = return_stack<typename S1::head,
+	      typename rstack_concat<typename S1::tail, S2>::run>;
+};
+
+template <typename S2>
+struct rstack_concat<nil, S2> {
+	using run = S2;
+};
+
+template <typename... Words>
+struct colon {
+	using create = typename build_return_stack<Words...>::run;
+	template <typename E>
+		using run = environment<typename E::dstack,
+		      typename rstack_concat<create, typename E::rstack>::
+			      run>;
 };
 
 template <typename DataStack, typename ReturnStack>

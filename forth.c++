@@ -4,11 +4,13 @@
 int main()
 {
 	using dat = nil;
+	using dup2 = colon<dup, dup>;
 	using rtn =
 	      return_stack<lit<7>,
 	      return_stack<lit<3>,
 	      return_stack<drop,
-	      return_stack<dup, nil>>>>;
+	      return_stack<dup,
+	      return_stack<dup2, nil>>>>>;
 	using env = environment<dat, rtn>;
 	forth::run<env>::dstack::dump_stack();
 }
