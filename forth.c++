@@ -3,14 +3,8 @@
 
 int main()
 {
-	using dat = nil;
 	using dup2 = colon<dup, dup>;
-	using rtn =
-	      return_stack<lit<7>,
-	      return_stack<lit<3>,
-	      return_stack<drop,
-	      return_stack<dup,
-	      return_stack<dup2, nil>>>>>;
-	using env = environment<dat, rtn>;
+	using rtnstk = build_return_stack<lit<7>, lit<3>, drop, dup, dup2>::run;
+	using env = environment<nil, rtnstk>;
 	forth::run<env>::dstack::dump_stack();
 }
