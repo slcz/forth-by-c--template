@@ -8,9 +8,9 @@ int main()
 		colon<dup2, dup, dup>,
 		lit<7>,
 		lit<3>,
-		lit<6>,
+		lit<8>,
 		lit<10>,
-		divmod
+		invert
 		>::run;
 	using env = environment<nil, rtnstk, initialize_dictionary::run>;
 	forth::run<env>::dstack::tochars();
