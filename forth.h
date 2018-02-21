@@ -6,21 +6,27 @@
 #define genstruct(x) struct x {                       \
 	static void tochars()                         \
 	{                                             \
-		std::cout << #x << std::endl;         \
+		std::cout << #x << " ";               \
 	}                                             \
 };
 #define names(...) MAP(genstruct, __VA_ARGS__)
 
 template<int> struct L;
+template<typename> struct S;
 
 struct nil {
-	static void tochars() { std::cout << std::endl; }
+	static void tochars() {}
 };
 
 template <typename Element, typename Tail>
 struct return_stack {
 	using head = Element;
 	using tail = Tail;
+	static void tochars() {
+		head::tochars();
+		std::cout << " ";
+		tail::tochars();
+	}
 };
 
 template <typename Element, typename Tail>
@@ -55,10 +61,16 @@ struct rstack_concat<nil, S2> {
 
 template <typename, typename...> struct build_return_stack;
 
-struct literal;
+struct lit_num;
+struct lit_sym;
 template <int N>
+struct num {
+	using run = return_stack<lit_num, return_stack<L<N>, nil>>;
+};
+
+template <typename N>
 struct lit {
-	using run = return_stack<literal, return_stack<L<N>, nil>>;
+	using run = return_stack<lit_sym, return_stack<N, nil>>;
 };
 
 struct def;
@@ -142,6 +154,8 @@ struct R {
 			typename E::dstack,
 			typename rstack_concat<words, typename E::rstack>::run,
 			typename E::dict>;
+	static void tochars() {
+		std::cout << "("; words::tochars(); std::cout << ")"; }
 };
 
 template <typename Key, typename... Words>
@@ -194,7 +208,12 @@ template <int N> struct L {
 	}
 };
 
-struct literal {
+/* Builtin words */
+#define TC(x) \
+	static void tochars() { std::cout << #x; }
+
+struct lit_num {
+	TC(lit_num)
 	template <typename Environment>
 		static const int N = Environment::rstack::head::v;
 	template <typename Environment>
@@ -204,9 +223,16 @@ struct literal {
 		      typename Environment::dict>;
 };
 
-/* Builtin words */
-#define TC(x) \
-	static void tochars() { std::cout << #x << std::endl; }
+struct lit_sym {
+	TC(lit_sym)
+	template <typename Environment>
+		using N = typename Environment::rstack::head;
+	template <typename Environment>
+		using run = environment<data_stack<
+		         N<Environment>, typename Environment::dstack>,
+		      typename Environment::rstack::tail,
+		      typename Environment::dict>;
+};
 
 struct drop {
 	TC(drop)
@@ -594,9 +620,82 @@ struct invert {
 		      typename Environment::dict>;
 };
 
+/* dictionary pointer */
+struct version {
+	TC(version)
+	static const int ver = 1;
+	template <typename Environment>
+		using run = environment<
+		      data_stack<L<ver>, typename Environment::dstack>,
+		      typename Environment::rstack,
+		      typename Environment::dict>;
+};
+
+struct dict {
+	TC(dict)
+	template <typename E>
+	struct search_dict {
+		using dstack = typename E::dstack;
+		static const int offset = dstack::head::v;
+		using dict   = typename E::dict;
+		template <typename dict, int N>
+		struct search { using run = typename
+			search<typename dict::rest, N - 1>::run; };
+		template <typename dict>
+		struct search<dict, 0> { using run = dict; };
+	
+		using entry = typename search <dict, offset>::run;
+		using run =
+		    data_stack<typename entry::key, data_stack<
+		    typename entry::value, typename dstack::tail>>;
+	};
+
+	template <typename Environment>
+		using run = environment<
+		      typename search_dict<Environment>::run,
+		      typename Environment::rstack,
+		      typename Environment::dict>;
+};
+
+struct tor {
+	TC(tor)
+	template <typename E>
+	struct do_tor {
+		using d0 = typename E::dstack::head;
+		using r0 = typename E::dstack::tail;
+		using run = environment<r0,
+		      return_stack<d0, typename E::rstack>, typename E::dict>;
+	};
+	template <typename Environment>
+		using run = typename do_tor<Environment>::run;
+};
+
+struct fromr {
+	TC(fromr)
+	template <typename E>
+	struct do_fromr {
+		using d0 = typename E::rstack::head;
+		using r0 = typename E::rstack::tail;
+		using run = environment<data_stack<d0, typename E::dstack>,
+		                        r0, typename E::dict>;
+	};
+	template <typename Environment>
+		using run = typename do_fromr<Environment>::run;
+};
+
+struct rdrop {
+	TC(rdrop)
+	template <typename Environment>
+		using run = environment <
+			typename Environment::dstack,
+			typename Environment::rstack::tail,
+			typename Environment::dict>;
+};
+
 struct initialize_dictionary {
 	using run =                  dictionary<
-		literal,  literal,   dictionary<
+		lit_num,  lit_num,   dictionary<
+		lit_sym,  lit_sym,   dictionary<
 		drop,     drop,      dictionary<
 		dup,      dup,       dictionary<
 		swap,     swap,      dictionary<
@@ -632,6 +731,11 @@ struct initialize_dictionary {
 		or_,      or_,       dictionary<
 		xor_,     xor_,      dictionary<
 		invert,   invert,    dictionary<
+		version,  version,   dictionary<
+		dict,     dict,      dictionary<
+		tor,      tor,       dictionary<
+		fromr,    fromr,     dictionary<
+		rdrop,    rdrop,     dictionary<
 		def,      def,       nil
-		>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>;
+		>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>;
 };
